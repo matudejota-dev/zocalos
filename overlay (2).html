@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Overlay — Zócalo NEXO</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@600&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1920px;height:80px;overflow:hidden;background:transparent}
+  #wrapper{
+    position:absolute;left:0;right:0;height:80px;bottom:0;
+    display:flex;align-items:center;overflow:hidden;
+    background:#000000;
+    opacity:0;transition:opacity .6s ease, background .5s;
+  }
+  #wrapper.visible{opacity:1}
+  #accent-bar{width:6px;height:100%;flex-shrink:0;background:#e63946;transition:background .5s}
+  #ticker-area{flex:1;overflow:hidden;height:100%;display:flex;align-items:center;position:relative}
+  #ticker-text{
+    white-space:nowrap;
+    font-family:'Bebas Neue','Barlow Condensed',sans-serif;
+    font-size:36px;letter-spacing:2px;color:#ffffff;line-height:1;
+    transition:color .5s,font-size .3s;will-change:transform;
+  }
+  #ticker-text.static-mode{padding-left:20px;animation:none!important}
+  #fade-right{position:absolute;right:0;top:0;bottom:0;width:80px;pointer-events:none;z-index:2}
+  #live-badge{
+    font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;
+    color:#fff;padding:4px 12px;background:#e63946;flex-shrink:0;
+    height:100%;display:flex;align-items:center;
+    opacity:0;transition:opacity .4s,background .5s;
+  }
+  #live-badge.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="wrapper">
+  <div id="live-badge">EN VIVO</div>
+  <div id="accent-bar"></div>
+  <div id="ticker-area">
+    <div id="ticker-text"></div>
+    <div id="fade-right"></div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyAsagofDJGtg7oYDsYSio5Bf2ebbfMTaQ8",
+  authDomain:        "zocalos-83a78.firebaseapp.com",
+  databaseURL:       "https://zocalos-83a78-default-rtdb.firebaseio.com",
+  projectId:         "zocalos-83a78",
+  storageBucket:     "zocalos-83a78.firebasestorage.app",
+  messagingSenderId: "1011691238120",
+  appId:             "1:1011691238120:web:f7b1fb5be16426f3a30f5d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+
+const wrapper    = document.getElementById('wrapper');
+const tickerText = document.getElementById('ticker-text');
+const accentBar  = document.getElementById('accent-bar');
+const fadeRight  = document.getElementById('fade-right');
+const liveBadge  = document.getElementById('live-badge');
+
+let lastText   = null;
+let lastActive = null;
+let styleEl    = document.createElement('style');
+document.head.appendChild(styleEl);
+
+// Escuchar cambios en tiempo real desde Firebase
+onValue(ref(db, 'zocalo'), (snap) => {
+  const data = snap.val();
+  if (!data) return;
+  applyData(data);
+});
+
+function applyData(data) {
+  const text   = (data.text || '').trim();
+  const active = data.active !== false && text !== '';
+
+  const bg     = data.bgColor     || '#000000';
+  const fg     = data.textColor   || '#ffffff';
+  const accent = data.accentColor || '#e63946';
+  const speed  = parseInt(data.speed    || 20);
+  const size   = parseInt(data.fontSize || 36);
+  const mode   = data.mode        || 'scroll';
+  const sep    = data.separator   || '   ◆   ';
+
+  // Aplicar colores
+  wrapper.style.background   = bg;
+  accentBar.style.background = accent;
+  liveBadge.style.background = accent;
+  tickerText.style.color     = fg;
+  tickerText.style.fontSize  = size + 'px';
+  fadeRight.style.background = `linear-gradient(to right, transparent, ${bg})`;
+
+  if (!active) {
+    wrapper.classList.remove('visible');
+    liveBadge.classList.remove('show');
+    lastActive = false;
+    lastText   = null;
+    return;
+  }
+
+  wrapper.classList.add('visible');
+  liveBadge.classList.add('show');
+
+  // Solo reanimar si el texto cambió
+  if (text !== lastText || active !== lastActive) {
+    lastText   = text;
+    lastActive = true;
+    animateTicker(text, mode, speed, sep);
+  }
+}
+
+function animateTicker(text, mode, speed, sep) {
+  // Resetear animación
+  tickerText.style.animation = 'none';
+  tickerText.className = '';
+  void tickerText.offsetWidth; // forzar reflow
+
+  if (mode === 'static') {
+    tickerText.classList.add('static-mode');
+    tickerText.textContent = text;
+    return;
+  }
+
+  // Duplicar texto para loop continuo y fluido
+  tickerText.textContent = text + sep + text + sep;
+
+  requestAnimationFrame(() => {
+    const halfW  = tickerText.scrollWidth / 2;
+    const kfName = 'scroll_' + Date.now();
+    styleEl.textContent = `
+      @keyframes ${kfName} {
+        0%   { transform: translateX(1920px); }
+        100% { transform: translateX(-${halfW + 10}px); }
+      }
+    `;
+    tickerText.style.animation = `${kfName} ${speed}s linear infinite`;
+  });
+}
+</script>
+</body>
+</html>
