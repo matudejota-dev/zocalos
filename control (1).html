@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Zócalos — NEXO</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Bebas+Neue&display=swap');
+  :root {
+    --bg:#0a0a0f; --surface:#12121a; --border:#1e1e2e;
+    --accent:#e63946; --accent2:#f4a261; --text:#e8e8f0;
+    --muted:#5a5a7a; --green:#2a9d8f; --radius:6px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;padding:24px}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:32px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+  .logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:3px;color:var(--accent)}
+  .logo span{color:var(--accent2)}
+  .status-dot{width:10px;height:10px;border-radius:50%;background:var(--muted);margin-left:auto;transition:all .3s}
+  .status-dot.live{background:#57cc99;box-shadow:0 0 8px #57cc99;animation:pulse 1.5s infinite}
+  .status-dot.error{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  @keyframes pulse{0%,100%{box-shadow:0 0 6px #57cc99}50%{box-shadow:0 0 16px #57cc99}}
+  .status-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:2px}
+  .status-label.live{color:#57cc99}
+  .status-label.error{color:var(--accent)}
+  .grid{display:grid;grid-template-columns:1fr 320px;gap:20px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px}
+  .card-title{font-size:10px;text-transform:uppercase;letter-spacing:3px;color:var(--muted);margin-bottom:16px}
+  textarea{width:100%;background:#0d0d14;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:15px;padding:14px;resize:vertical;min-height:100px;outline:none;transition:border-color .2s;line-height:1.6}
+  textarea:focus{border-color:var(--accent)}
+  .controls-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;align-items:center}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:2px;padding:10px 20px;border:1px solid;border-radius:var(--radius);cursor:pointer;transition:all .15s}
+  .btn-send{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn-send:hover{background:#ff4757;border-color:#ff4757}
+  .btn-clear{background:transparent;border-color:var(--border);color:var(--muted)}
+  .btn-clear:hover{border-color:var(--accent);color:var(--accent)}
+  .btn-empty{background:transparent;border-color:var(--border);color:var(--muted);font-size:11px;padding:10px 16px}
+  .btn-empty:hover{border-color:var(--accent2);color:var(--accent2)}
+  .char-count{margin-left:auto;font-size:11px;color:var(--muted)}
+  .char-count.warn{color:var(--accent2)}
+  .char-count.over{color:var(--accent)}
+  .preview-area{margin-top:20px;background:#000;border-radius:var(--radius);height:60px;display:flex;align-items:center;overflow:hidden;position:relative;border:1px solid var(--border)}
+  .preview-area::before{content:'PREVIEW';position:absolute;top:6px;left:10px;font-size:9px;letter-spacing:2px;color:#333}
+  .ticker-preview{white-space:nowrap;font-size:24px;color:#fff;padding-left:100%;font-family:'Bebas Neue',sans-serif;letter-spacing:2px}
+  .ticker-preview.running{animation:scroll-preview 12s linear infinite}
+  @keyframes scroll-preview{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+  .option-group{margin-bottom:20px}
+  .option-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;display:block}
+  select,input[type="color"],input[type="range"],input[type="text"]{width:100%;background:#0d0d14;border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;padding:8px 10px;outline:none;cursor:pointer}
+  select:focus,input:focus{border-color:var(--accent)}
+  input[type="color"]{height:36px;padding:4px}
+  .color-row{display:flex;gap:10px}
+  .color-item{flex:1}
+  .color-item label{font-size:10px;color:var(--muted);display:block;margin-bottom:6px}
+  .range-row{display:flex;align-items:center;gap:10px}
+  input[type="range"]{flex:1;padding:0;height:4px;accent-color:var(--accent)}
+  .range-val{font-size:11px;color:var(--accent2);min-width:36px;text-align:right}
+  .history-list{display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto}
+  .history-list::-webkit-scrollbar{width:3px}
+  .history-list::-webkit-scrollbar-thumb{background:var(--border)}
+  .history-item{background:#0d0d14;border:1px solid var(--border);border-radius:4px;padding:8px 12px;font-size:12px;display:flex;align-items:center;gap:8px;cursor:pointer;transition:border-color .2s;overflow:hidden;white-space:nowrap}
+  .history-item:hover{border-color:var(--accent)}
+  .hi-time{font-size:10px;color:var(--muted);flex-shrink:0}
+  .hi-text{overflow:hidden;text-overflow:ellipsis}
+  .btn-reuse{margin-left:auto;background:transparent;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0;letter-spacing:0;text-transform:none;flex-shrink:0}
+  .btn-reuse:hover{color:var(--accent2)}
+  .toggle-row{display:flex;gap:6px}
+  .mode-btn{flex:1;text-align:center;padding:8px;font-size:10px;letter-spacing:1px;background:#0d0d14;border:1px solid var(--border);color:var(--muted);border-radius:4px;cursor:pointer}
+  .mode-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .obs-box{margin-top:32px;background:#0a0a14;border:1px dashed var(--border);border-radius:var(--radius);padding:16px}
+  .obs-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:2px;margin-bottom:10px}
+  .obs-url{font-size:12px;color:var(--accent2);word-break:break-all;cursor:pointer}
+  .obs-url:hover{color:#fff}
+  .obs-hint{font-size:10px;color:var(--muted);margin-top:6px}
+  .toast{position:fixed;bottom:24px;right:24px;color:#fff;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:1px;padding:10px 18px;border-radius:var(--radius);opacity:0;transform:translateY(10px);transition:all .3s;pointer-events:none;z-index:100;background:var(--green)}
+  .toast.show{opacity:1;transform:translateY(0)}
+  .toast.err{background:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">ZÓCALO<span>LIVE</span></div>
+  <div style="font-size:11px;color:var(--muted);letter-spacing:1px">Panel de Control · NEXO</div>
+  <div style="display:flex;align-items:center;gap:8px;margin-left:auto">
+    <div class="status-dot" id="statusDot"></div>
+    <div class="status-label" id="statusLabel">CONECTANDO...</div>
+  </div>
+</header>
+
+<div class="grid">
+  <div>
+    <div class="card">
+      <div class="card-title">// Texto del Zócalo</div>
+      <textarea id="mainText" placeholder="Escribí el texto del zócalo acá..." maxlength="300"></textarea>
+      <div class="controls-row">
+        <button class="btn-send" onclick="sendTicker()">▶ ENVIAR AL AIRE</button>
+        <button class="btn-empty" onclick="clearTicker()">✕ VACIAR ZÓCALO</button>
+        <button class="btn-clear" onclick="clearText()">LIMPIAR</button>
+        <span class="char-count" id="charCount">0 / 300</span>
+      </div>
+      <div class="preview-area">
+        <div class="ticker-preview" id="tickerPreview">Vista previa del zócalo</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">// Historial Reciente</div>
+      <div class="history-list" id="historyList">
+        <div style="font-size:11px;color:var(--muted)">Los zócalos enviados aparecerán aquí.</div>
+      </div>
+    </div>
+
+    <div class="obs-box">
+      <div class="obs-title">// URL para OBS Studio — Fuente de Navegador</div>
+      <div class="obs-url" onclick="copyUrl()">https://energica.co/nexo/overlay.html</div>
+      <div class="obs-hint">Hacé clic para copiar · OBS: Fuente de Navegador · Ancho: 1920 · Alto: 80</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="card">
+      <div class="card-title">// Estilo Visual</div>
+      <div class="option-group">
+        <span class="option-label">Modo de Animación</span>
+        <div class="toggle-row">
+          <div class="mode-btn active" id="modeScroll" onclick="setMode('scroll')">◀ SCROLL</div>
+          <div class="mode-btn" id="modeStatic" onclick="setMode('static')">■ FIJO</div>
+        </div>
+      </div>
+      <div class="option-group">
+        <span class="option-label">Velocidad de Scroll</span>
+        <div class="range-row">
+          <input type="range" id="speedRange" min="5" max="60" value="20" oninput="updateSpeed(this.value)">
+          <span class="range-val" id="speedVal">20s</span>
+        </div>
+      </div>
+      <div class="option-group">
+        <span class="option-label">Tamaño de Fuente</span>
+        <div class="range-row">
+          <input type="range" id="sizeRange" min="14" max="60" value="36" oninput="updateSize(this.value)">
+          <span class="range-val" id="sizeVal">36px</span>
+        </div>
+      </div>
+      <div class="option-group">
+        <span class="option-label">Colores</span>
+        <div class="color-row">
+          <div class="color-item"><label>Fondo</label><input type="color" id="bgColor" value="#000000"></div>
+          <div class="color-item"><label>Texto</label><input type="color" id="textColor" value="#ffffff"></div>
+          <div class="color-item"><label>Acento</label><input type="color" id="accentColor" value="#e63946"></div>
+        </div>
+      </div>
+      <div class="option-group">
+        <span class="option-label">Prefijo / Etiqueta</span>
+        <input type="text" id="prefixText" placeholder="Ej: URGENTE |">
+      </div>
+      <div class="option-group">
+        <span class="option-label">Separador</span>
+        <input type="text" id="separatorText" value="   ◆   ">
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title">// Presets Rápidos</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="btn-empty" onclick="applyPreset('breaking')" style="text-align:left;font-size:11px">🔴 Último Momento</button>
+        <button class="btn-empty" onclick="applyPreset('info')"     style="text-align:left;font-size:11px">🔵 Información</button>
+        <button class="btn-empty" onclick="applyPreset('clean')"    style="text-align:left;font-size:11px">⬜ Limpio / Minimalista</button>
+        <button class="btn-empty" onclick="applyPreset('sport')"    style="text-align:left;font-size:11px">⚽ Deportes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey:            "AIzaSyAsagofDJGtg7oYDsYSio5Bf2ebbfMTaQ8",
+  authDomain:        "zocalos-83a78.firebaseapp.com",
+  databaseURL:       "https://zocalos-83a78-default-rtdb.firebaseio.com",
+  projectId:         "zocalos-83a78",
+  storageBucket:     "zocalos-83a78.firebasestorage.app",
+  messagingSenderId: "1011691238120",
+  appId:             "1:1011691238120:web:f7b1fb5be16426f3a30f5d"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getDatabase(app);
+const zocaloRef = ref(db, 'zocalo');
+
+let historyList = [];
+let currentMode = 'scroll';
+
+// ── Verificar conexión ──────────────────────────────────────────────────
+onValue(ref(db, '.info/connected'), (snap) => {
+  const connected = snap.val();
+  const dot   = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
+  dot.className   = 'status-dot'   + (connected ? ' live' : ' error');
+  label.className = 'status-label' + (connected ? ' live' : ' error');
+  label.textContent = connected ? 'FIREBASE CONECTADO' : 'SIN CONEXIÓN';
+});
+
+// ── Escribir en Firebase ────────────────────────────────────────────────
+async function pushToFirebase(data) {
+  try {
+    await set(zocaloRef, { ...data, updatedAt: Date.now() });
+  } catch(e) {
+    showToast('⚠ Error al enviar', true);
+  }
+}
+
+function getOptions() {
+  return {
+    bgColor:     document.getElementById('bgColor').value,
+    textColor:   document.getElementById('textColor').value,
+    accentColor: document.getElementById('accentColor').value,
+    speed:       parseInt(document.getElementById('speedRange').value),
+    fontSize:    parseInt(document.getElementById('sizeRange').value),
+    mode:        currentMode,
+    separator:   document.getElementById('separatorText').value,
+    prefix:      document.getElementById('prefixText').value.trim(),
+  };
+}
+
+window.sendTicker = async function() {
+  const raw = document.getElementById('mainText').value.trim();
+  if (!raw) { showToast('Escribí algo primero', true); return; }
+  const prefix = document.getElementById('prefixText').value.trim();
+  const text   = prefix ? prefix + ' ' + raw : raw;
+  await pushToFirebase({ ...getOptions(), text, active: true });
+  addToHistory(text);
+  showToast('✓ Zócalo enviado al aire');
+  updatePreview();
+};
+
+window.clearTicker = async function() {
+  await pushToFirebase({ text: '', active: false });
+  showToast('Zócalo vaciado');
+};
+
+window.clearText = function() {
+  document.getElementById('mainText').value = '';
+  document.getElementById('charCount').textContent = '0 / 300';
+  updatePreview();
+};
+
+function updatePreview() {
+  const raw    = document.getElementById('mainText').value.trim() || 'Vista previa del zócalo';
+  const prefix = document.getElementById('prefixText').value.trim();
+  const full   = prefix ? prefix + ' ' + raw : raw;
+  const el     = document.getElementById('tickerPreview');
+  el.textContent = full;
+  el.style.color    = document.getElementById('textColor').value;
+  el.style.fontSize = document.getElementById('sizeRange').value + 'px';
+  if (currentMode === 'scroll') {
+    el.className = 'ticker-preview running';
+    el.style.animationDuration = document.getElementById('speedRange').value + 's';
+  } else {
+    el.className = 'ticker-preview';
+    el.style.paddingLeft = '16px';
+    el.style.animationDuration = '';
+  }
+}
+
+window.updateSpeed = function(v) { document.getElementById('speedVal').textContent = v + 's';  updatePreview(); };
+window.updateSize  = function(v) { document.getElementById('sizeVal').textContent  = v + 'px'; updatePreview(); };
+
+window.setMode = function(m) {
+  currentMode = m;
+  document.getElementById('modeScroll').className = 'mode-btn' + (m === 'scroll' ? ' active' : '');
+  document.getElementById('modeStatic').className = 'mode-btn' + (m === 'static' ? ' active' : '');
+  updatePreview();
+};
+
+window.applyPreset = function(name) {
+  const p = {
+    breaking:{ bg:'#c1121f', text:'#ffffff', accent:'#ffb703', speed:15, size:34 },
+    info:    { bg:'#023e8a', text:'#e0e0e0', accent:'#90e0ef', speed:22, size:28 },
+    clean:   { bg:'#1a1a1a', text:'#f8f8f8', accent:'#cccccc', speed:25, size:26 },
+    sport:   { bg:'#006400', text:'#ffffff', accent:'#ffd700', speed:18, size:32 },
+  }[name];
+  if (!p) return;
+  document.getElementById('bgColor').value     = p.bg;
+  document.getElementById('textColor').value   = p.text;
+  document.getElementById('accentColor').value = p.accent;
+  document.getElementById('speedRange').value  = p.speed; document.getElementById('speedVal').textContent = p.speed + 's';
+  document.getElementById('sizeRange').value   = p.size;  document.getElementById('sizeVal').textContent  = p.size + 'px';
+  updatePreview(); showToast('Preset aplicado');
+};
+
+function addToHistory(text) {
+  const now  = new Date();
+  const time = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  historyList.unshift({ text, time });
+  if (historyList.length > 20) historyList.pop();
+  renderHistory();
+}
+function renderHistory() {
+  const el = document.getElementById('historyList');
+  if (!historyList.length) { el.innerHTML = '<div style="font-size:11px;color:var(--muted)">Los zócalos enviados aparecerán aquí.</div>'; return; }
+  el.innerHTML = historyList.map((h,i) => `
+    <div class="history-item" onclick="reuseHistory(${i})">
+      <span class="hi-time">${h.time}</span>
+      <span class="hi-text">${esc(h.text)}</span>
+      <button class="btn-reuse" onclick="event.stopPropagation();reuseHistory(${i})">↑</button>
+    </div>`).join('');
+}
+window.reuseHistory = function(i) {
+  document.getElementById('mainText').value = historyList[i].text;
+  document.getElementById('mainText').dispatchEvent(new Event('input'));
+  showToast('Texto restaurado');
+};
+function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+window.copyUrl = function() {
+  navigator.clipboard.writeText('https://energica.co/nexo/overlay.html')
+    .then(() => showToast('URL copiada'));
+};
+
+let toastTimer;
+function showToast(msg, isErr = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className   = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+document.getElementById('mainText').addEventListener('input', () => {
+  const len = document.getElementById('mainText').value.length;
+  const cc  = document.getElementById('charCount');
+  cc.textContent = len + ' / 300';
+  cc.className   = 'char-count' + (len > 250 ? ' over' : len > 200 ? ' warn' : '');
+  updatePreview();
+});
+
+document.querySelectorAll('input[type="color"]').forEach(el => el.addEventListener('input', updatePreview));
+updatePreview();
+</script>
+</body>
+</html>
